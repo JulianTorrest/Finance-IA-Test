@@ -14,10 +14,14 @@ import streamlit as st
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import src.llm_agent
 import src.predict
+import src.drift
 importlib.reload(src.llm_agent)
 importlib.reload(src.predict)
+importlib.reload(src.drift)
 
 from src.llm_agent import ask
+from src.retrain import retrain
+from src.drift import run_drift_report
 from src.predict import (
     build_rich_context,
     list_top_fraud_transactions,
@@ -42,7 +46,7 @@ st.markdown(
 st.title("Agente Inteligente de Riesgo y Fraude")
 st.markdown("Solución analítica productiva para scoring de riesgo, detección de fraude y asesoría IA.")
 
-tab_risk, tab_fraud, tab_agent, tab_monitor = st.tabs(["Riesgo Financiero", "Fraude", "Agente IA", "Monitoreo"])
+tab_risk, tab_fraud, tab_agent, tab_monitor, tab_drift = st.tabs(["Riesgo Financiero", "Fraude", "Agente IA", "Monitoreo", "Drift"])
 
 with tab_risk:
     st.header("Clientes con mayor riesgo financiero")
@@ -231,5 +235,42 @@ with tab_monitor:
             )
             st.plotly_chart(fig, use_container_width=True)
 
+        st.subheader("Retraining automático")
+        from src.retrain import should_retrain
+        if should_retrain(days=30):
+            st.warning("Los modelos tienen más de 30 días. Considere reentrenar.")
+        else:
+            st.info("Los modelos están vigentes.")
+
+        if st.button("Reentrenar modelos ahora", key="retrain_button"):
+            with st.spinner("Entrenando modelos, esto puede tardar unos minutos..."):
+                result = retrain(force=True)
+            st.success(result)
+
     except FileNotFoundError:
         st.warning("Aún no se han entrenado modelos. Ejecute `python src/train_models.py`")
+
+with tab_drift:
+    st.header("Monitoreo de drift")
+    st.markdown("Comparación entre datos de referencia (entrenamiento) y datos actuales simulados usando PSI y KS.")
+
+    if st.button("Ejecutar análisis de drift", key="drift_button"):
+        with st.spinner("Analizando drift..."):
+            report = run_drift_report()
+
+        if report["drift_detected"]:
+            st.error(f"Drift detectado en: {report['risk_drifted_features'] + report['fraud_drifted_features']}")
+        else:
+            st.success("No se detectó drift significativo.")
+
+        st.subheader("Variables de riesgo")
+        st.dataframe(pd.DataFrame(report["risk_report"]).T, use_container_width=True)
+
+        st.subheader("Variables de fraude")
+        st.dataframe(pd.DataFrame(report["fraud_report"]).T, use_container_width=True)
+
+        if report["drift_detected"]:
+            if st.button("Reentrenar con datos actuales", key="retrain_drift_button"):
+                with st.spinner("Reentrenando..."):
+                    result = retrain(force=True)
+                st.success(result)

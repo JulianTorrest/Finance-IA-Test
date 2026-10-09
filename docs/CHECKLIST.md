@@ -27,7 +27,7 @@ Basado en el documento `Prueba Técnica CD Sr.pdf`. Estado: **hecho**, **parcial
 | Configuración centralizada | ✅ Hecho | `config/config.yaml` |
 | API de inferencia reutilizable | ✅ Hecho | `src/predict.py` |
 | Buenas prácticas básicas | ✅ Hecho | `.gitignore`, `.env.example`, `requirements.txt` |
-| Tests unitarios | ⚠️ Parcial | No hay suite de tests automatizados |
+| Tests unitarios | ✅ Hecho | `tests/` con pytest (14 tests) |
 
 ## 4. Preparación y metodología de entornos
 
@@ -45,8 +45,8 @@ Basado en el documento `Prueba Técnica CD Sr.pdf`. Estado: **hecho**, **parcial
 | Registro de modelos | ✅ Hecho | `models/model_registry.json` |
 | Versionamiento | ✅ Hecho | Nombres `*_v1.0.0.joblib` y registry |
 | Monitoreo de métricas | ✅ Hecho | Tab Monitoreo en Streamlit |
-| Estrategia de retraining | ⚠️ Parcial | Documentada en `ARQUITECTURA.md`, no automatizada |
-| Data drift / concept drift | ⚠️ Parcial | Mencionado, no implementado con librería |
+| Estrategia de retraining | ✅ Hecho | `src/retrain.py` y botón en Streamlit |
+| Data drift / concept drift | ✅ Hecho | `src/drift.py` con PSI y KS, tab Drift en Streamlit |
 
 ## 6. Tiempos estimados, entregables y mejoras en el ciclo de vida
 
@@ -102,6 +102,6 @@ Basado en el documento `Prueba Técnica CD Sr.pdf`. Estado: **hecho**, **parcial
 
 ## Resumen
 
-- **Totalmente hecho:** ~85%
-- **Parcial o mejorable:** tests automatizados, retraining automático, drift monitoring avanzado, API REST formal.
-- **Pendiente para refinar:** ajustar prompts del agente según tier de LLM, pulir UI, agregar tests.
+- **Totalmente hecho:** ~95%
+- **Parcial o mejorable:** API REST formal (FastAPI), feature store, CI/CD.
+- **Pendiente para refinar:** ajustar prompts del agente según tier de LLM.

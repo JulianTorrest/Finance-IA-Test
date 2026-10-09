@@ -7,8 +7,10 @@ Solución productiva de ciencia de datos para un banco que busca evolucionar su 
 - **Modelo de riesgo financiero:** scoring de riesgo de clientes actualizable en el tiempo.
 - **Modelo de fraude:** detección de transacciones atípicas con anomalías.
 - **Agente IA:** consumo de resultados vía LLMs Mistral y Groq para respuestas accionables.
-- **Ciclo de vida del modelo:** registro, versionamiento, monitoreo y control.
+- **Ciclo de vida del modelo:** registro, versionamiento, monitoreo, retraining automático y control.
 - **Datos dummy:** clientes, cuentas y transacciones generados sintéticamente.
+- **Tests automatizados:** cobertura de datos, modelos y predicciones con pytest.
+- **Drift monitoring:** detección con PSI y KS, reporte y alertas en Streamlit.
 
 ## Estructura del proyecto
 
@@ -61,7 +63,13 @@ python src/generate_data.py
 python src/train_models.py
 ```
 
-### 3. Ejecutar la aplicación Streamlit
+### 3. Ejecutar tests automatizados
+
+```bash
+pytest -q
+```
+
+### 4. Ejecutar la aplicación Streamlit
 
 ```bash
 streamlit run app/streamlit_app.py

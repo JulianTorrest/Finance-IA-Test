@@ -1,0 +1,48 @@
+project:
+  name: "Prueba Técnica CD Sr - Banca Analítica"
+  version: "1.0.0"
+
+data:
+  n_clients: 5000
+  n_transactions: 100000
+  random_state: 42
+  output_dir: "data"
+
+models:
+  risk:
+    name: "risk_score_model"
+    version: "1.0.0"
+    artifact: "models/risk_model_v1.0.0.joblib"
+    features:
+      - age
+      - monthly_income
+      - total_debt
+      - credit_score
+      - tenure_months
+      - debt_to_income
+      - num_products
+    target: risk_high
+    threshold: 0.6
+  fraud:
+    name: "fraud_anomaly_model"
+    version: "1.0.0"
+    artifact: "models/fraud_model_v1.0.0.joblib"
+    features:
+      - amount
+      - hour
+      - day_of_week
+      - channel_encoded
+      - country_risk_score
+      - velocity_1h
+      - amount_zscore
+    contamination: 0.02
+
+llm:
+  groq:
+    model: "mixtral-8x7b-32768"
+    temperature: 0.3
+    max_tokens: 1024
+  mistral:
+    model: "mistral-large-latest"
+    temperature: 0.3
+    max_tokens: 1024

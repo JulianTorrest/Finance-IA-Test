@@ -24,6 +24,8 @@ from src.retrain import retrain
 from src.drift import run_drift_report
 from src.predict import (
     build_rich_context,
+    list_fraud_models,
+    list_risk_models,
     list_top_fraud_transactions,
     list_top_risk_clients,
 )
@@ -50,7 +52,8 @@ tab_risk, tab_fraud, tab_agent, tab_monitor, tab_drift = st.tabs(["Riesgo Financ
 
 with tab_risk:
     st.header("Clientes con mayor riesgo financiero")
-    top_clients = list_top_risk_clients(20)
+    risk_model = st.selectbox("Modelo de riesgo", list_risk_models(), key="risk_model_select")
+    top_clients = list_top_risk_clients(20, model_name=risk_model)
     st.dataframe(top_clients, use_container_width=True)
 
     col1, col2 = st.columns(2)
@@ -74,7 +77,8 @@ with tab_risk:
 
 with tab_fraud:
     st.header("Transacciones más anómalas")
-    top_tx = list_top_fraud_transactions(20)
+    fraud_model = st.selectbox("Modelo de fraude", list_fraud_models(), key="fraud_model_select")
+    top_tx = list_top_fraud_transactions(20, model_name=fraud_model)
     st.dataframe(top_tx, use_container_width=True)
 
     fig3 = px.scatter(

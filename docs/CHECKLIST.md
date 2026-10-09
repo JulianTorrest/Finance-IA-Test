@@ -103,5 +103,5 @@ Basado en el documento `Prueba Técnica CD Sr.pdf`. Estado: **hecho**, **parcial
 ## Resumen
 
 - **Totalmente hecho:** ~95%
-- **Parcial o mejorable:** API REST formal (FastAPI), feature store, CI/CD.
+- **Parcial o mejorable:** feature store, CI/CD.
 - **Pendiente para refinar:** ajustar prompts del agente según tier de LLM.

@@ -11,3 +11,5 @@ matplotlib>=3.7
 seaborn>=0.12
 plotly>=5.18
 pytest>=7.4
+fastapi>=0.104
+uvicorn[standard]>=0.24

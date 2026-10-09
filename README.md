@@ -11,6 +11,8 @@ Solución productiva de ciencia de datos para un banco que busca evolucionar su 
 - **Datos dummy:** clientes, cuentas y transacciones generados sintéticamente.
 - **Tests automatizados:** cobertura de datos, modelos y predicciones con pytest.
 - **Drift monitoring:** detección con PSI y KS, reporte y alertas en Streamlit.
+- **Catálogo de modelos:** riesgo y fraude con múltiples algoritmos seleccionables.
+- **API REST:** FastAPI para consumo por otros sistemas.
 
 ## Estructura del proyecto
 
@@ -21,10 +23,14 @@ prueba_tecnica_cd_sr/
 ├── data/                 # Datos dummy
 ├── docs/                 # Documentación arquitectónica
 ├── models/               # Artefactos y registro de modelos
+├── api/                  # API REST con FastAPI
 ├── src/                  # Código fuente
 │   ├── generate_data.py  # Generación de datos dummy
+│   ├── model_catalog.py  # Entrenamiento de catálogo de modelos
 │   ├── train_models.py   # Entrenamiento y registro
 │   ├── predict.py        # API de inferencia
+│   ├── retrain.py        # Retraining automático
+│   ├── drift.py          # Drift monitoring
 │   └── llm_agent.py      # Integración Mistral/Groq
 ├── tests/                # Pruebas
 ├── .env.example
@@ -57,10 +63,10 @@ cp .env.example .env
 python src/generate_data.py
 ```
 
-### 2. Entrenar modelos
+### 2. Entrenar modelos (catálogo con alternativas)
 
 ```bash
-python src/train_models.py
+python src/model_catalog.py
 ```
 
 ### 3. Ejecutar tests automatizados
@@ -74,6 +80,23 @@ pytest -q
 ```bash
 streamlit run app/streamlit_app.py
 ```
+
+### 5. Ejecutar la API REST (FastAPI)
+
+```bash
+python -m uvicorn api.main:app --reload
+```
+
+Endpoints disponibles:
+
+- `GET /health`
+- `GET /catalog` — lista de modelos de riesgo y fraude
+- `GET /predict/risk/{client_id}?model=<nombre>`
+- `GET /predict/fraud/{transaction_id}?model=<nombre>`
+- `GET /context/client/{client_id}`
+- `GET /context/transaction/{transaction_id}`
+- `POST /retrain?force=true`
+- `GET /drift`
 
 ## Tecnologías
 

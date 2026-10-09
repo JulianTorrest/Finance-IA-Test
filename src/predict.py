@@ -1,7 +1,7 @@
 """
 Funciones de inferencia para los modelos entrenados.
-Expone una API simple de alto nivel que puede ser consumida por Streamlit
-u otros sistemas.
+Expone una API simple de alto nivel que puede ser consumida por Streamlit,
+FastAPI u otros sistemas, con soporte para múltiples modelos.
 """
 import json
 
@@ -13,72 +13,115 @@ with open("config/config.yaml", "r", encoding="utf-8") as f:
     CFG = yaml.safe_load(f)
 
 
-def _load_model(kind):
-    artifact = CFG["models"][kind]["artifact"]
-    return joblib.load(artifact)
+def _load_model(kind, model_name=None):
+    with open("models/model_catalog.json", "r", encoding="utf-8") as f:
+        catalog = json.load(f)
 
-
-def _to_native(value):
-    if hasattr(value, "item"):
-        return value.item()
-    return value
-
-
-def _feature_importance(model, kind):
     if kind == "risk":
-        clf = model.named_steps["clf"]
-        return dict(zip(CFG["models"]["risk"]["features"], clf.feature_importances_.tolist()))
-    return {}
+        key = "risk_models"
+        default = catalog["risk_default"]
+    else:
+        key = "fraud_models"
+        default = catalog["fraud_default"]
+
+    selected = model_name or default
+    if selected not in catalog[key]:
+        raise ValueError(f"Modelo '{selected}' no encontrado. Disponibles: {list(catalog[key].keys())}")
+
+    return joblib.load(catalog[key][selected]["artifact"])
 
 
-def predict_risk(client_id: str) -> dict:
+def _list_models(kind):
+    with open("models/model_catalog.json", "r", encoding="utf-8") as f:
+        catalog = json.load(f)
+    return list(catalog[f"{kind}_models"].keys())
+
+
+def predict_risk(client_id: str, model_name: str = None) -> dict:
     clients = pd.read_csv("data/clients.csv")
     client = clients[clients["client_id"] == client_id]
     if client.empty:
         return {"error": "Cliente no encontrado"}
 
     X = client[CFG["models"]["risk"]["features"]]
-    model = _load_model("risk")
+    model = _load_model("risk", model_name)
     proba = float(model.predict_proba(X)[:, 1][0])
-    top_features = _feature_importance(model, "risk")
 
     return {
         "client_id": client_id,
+        "model": model_name or "Riesgo - Random Forest",
         "risk_probability": round(proba, 4),
         "risk_label": "ALTO" if proba >= CFG["models"]["risk"]["threshold"] else "BAJO",
-        "top_features": {k: round(v, 4) for k, v in top_features.items()},
     }
 
 
-def predict_fraud(transaction_id: str) -> dict:
+def predict_fraud(transaction_id: str, model_name: str = None) -> dict:
     tx = pd.read_csv("data/transactions_scored.csv")
     row = tx[tx["transaction_id"] == transaction_id]
     if row.empty:
         return {"error": "Transacción no encontrada"}
 
-    return {
-        "transaction_id": transaction_id,
-        "client_id": row["client_id"].values[0],
-        "amount": float(row["amount"].values[0]),
-        "anomaly_score": float(row["anomaly_score"].values[0]),
-        "fraud_predicted": int(row["fraud_predicted"].values[0]),
-        "fraud_real": int(row["fraud_real"].values[0]),
-        "channel": row["channel"].values[0],
-        "hour": int(row["hour"].values[0]),
-    }
+    X = pd.read_csv("data/transactions.csv")
+    X = X[X["transaction_id"] == transaction_id][CFG["models"]["fraud"]["features"]].fillna(0)
+    model = _load_model("fraud", model_name)
+
+    if hasattr(model, "predict_proba"):
+        proba = float(model.predict_proba(X)[0][1])
+        pred = int(model.predict(X)[0])
+        return {
+            "transaction_id": transaction_id,
+            "client_id": row["client_id"].values[0],
+            "model": model_name or "Fraude - Isolation Forest",
+            "amount": float(row["amount"].values[0]),
+            "fraud_predicted": pred,
+            "fraud_probability": round(proba, 4),
+        }
+    else:
+        # IsolationForest
+        pred = int((model.predict(X)[0] == -1).astype(int))
+        score = float(-model.decision_function(X)[0])
+        return {
+            "transaction_id": transaction_id,
+            "client_id": row["client_id"].values[0],
+            "model": model_name or "Fraude - Isolation Forest",
+            "amount": float(row["amount"].values[0]),
+            "fraud_predicted": pred,
+            "anomaly_score": round(score, 4),
+        }
 
 
-def list_top_risk_clients(n=20):
+def list_top_risk_clients(n=20, model_name=None):
     clients = pd.read_csv("data/clients.csv")
     X = clients[CFG["models"]["risk"]["features"]]
-    model = _load_model("risk")
+    model = _load_model("risk", model_name)
     clients["risk_probability"] = model.predict_proba(X)[:, 1]
+    clients["model"] = model_name or "Riesgo - Random Forest"
     return clients.sort_values("risk_probability", ascending=False).head(n)
 
 
-def list_top_fraud_transactions(n=20):
-    tx = pd.read_csv("data/transactions_scored.csv")
+def list_top_fraud_transactions(n=20, model_name=None):
+    tx = pd.read_csv("data/transactions_scored.csv").copy()
+    X = pd.read_csv("data/transactions.csv")[CFG["models"]["fraud"]["features"]].fillna(0)
+    model = _load_model("fraud", model_name)
+
+    if hasattr(model, "predict_proba"):
+        tx["fraud_predicted"] = model.predict(X)
+        tx["fraud_probability"] = model.predict_proba(X)[:, 1]
+    else:
+        tx["anomaly_score"] = -model.decision_function(X)
+        tx["fraud_predicted"] = (model.predict(X) == -1).astype(int)
+        tx["fraud_probability"] = None
+
+    tx["model"] = model_name or "Fraude - Isolation Forest"
     return tx.sort_values("anomaly_score", ascending=False).head(n)
+
+
+def list_risk_models():
+    return _list_models("risk")
+
+
+def list_fraud_models():
+    return _list_models("fraud")
 
 
 def build_rich_context(client_id: str = None, transaction_id: str = None) -> dict:
@@ -101,7 +144,8 @@ def build_rich_context(client_id: str = None, transaction_id: str = None) -> dic
         recent_tx = client_tx.sort_values("timestamp", ascending=False).head(5)
         recent_tx = recent_tx.fillna(0).to_dict(orient="records")
 
-        risk_pred = predict_risk(client_id)
+        # Predicciones con todos los modelos de riesgo
+        risk_predictions = {m: predict_risk(client_id, model_name=m) for m in list_risk_models()}
 
         context = {
             "tipo": "cliente",
@@ -114,7 +158,7 @@ def build_rich_context(client_id: str = None, transaction_id: str = None) -> dic
                 "transacciones_fraudulentas_detectadas": int(client_tx["fraud_predicted"].sum()) if not client_tx.empty else 0,
             },
             "transacciones_recientes": recent_tx,
-            "prediccion_riesgo": risk_pred,
+            "predicciones_riesgo": risk_predictions,
         }
         return context
 
@@ -129,6 +173,9 @@ def build_rich_context(client_id: str = None, transaction_id: str = None) -> dic
         client_id = tx_row["client_id"]
         client_ctx = build_rich_context(client_id=client_id)
 
+        # Predicciones con todos los modelos de fraude
+        fraud_predictions = {m: predict_fraud(transaction_id, model_name=m) for m in list_fraud_models()}
+
         # transacciones similares: mismo canal y rango de monto
         similar = tx[
             (tx["client_id"] == client_id)
@@ -141,8 +188,14 @@ def build_rich_context(client_id: str = None, transaction_id: str = None) -> dic
             "transaccion_actual": tx_row,
             "contexto_cliente": client_ctx,
             "transacciones_similares": similar.fillna(0).to_dict(orient="records"),
-            "prediccion_fraude": predict_fraud(transaction_id),
+            "predicciones_fraude": fraud_predictions,
         }
         return context
 
     return {"error": "Debe proporcionar client_id o transaction_id"}
+
+
+def _to_native(value):
+    if hasattr(value, "item"):
+        return value.item()
+    return value

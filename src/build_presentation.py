@@ -4,66 +4,193 @@ import re
 from fpdf import FPDF
 
 
-def _clean_markdown(text):
-    text = text.strip()
-    text = re.sub(r"^#{1,3}\s+", "", text, flags=re.MULTILINE)
-    text = re.sub(r"\*\*(.*?)\*\*", r"\1", text)
-    text = re.sub(r"`{3}.*\n", "", text)
-    text = re.sub(r"`([^`]+)`", r"\1", text)
-    text = re.sub(r"\n{3,}", "\n\n", text)
-    return text
-
-
 def _split_slides(md_path):
     with open(md_path, "r", encoding="utf-8") as f:
         content = f.read()
-    # Separa por encabezados ## (cada slide)
-    parts = re.split(r"\n##\s+", content)
+    parts = re.split(r"\n---\s*\n", content)
     slides = []
     for part in parts:
         part = part.strip()
         if not part:
             continue
-        part = _clean_markdown(part)
-        slides.append(part)
+        # Encuentra el primer encabezado ##
+        lines = part.splitlines()
+        if lines and lines[0].startswith("# "):
+            lines = lines[1:]
+        slides.append("\n".join(lines))
     return slides
 
 
-def build_pdf(input_path="docs/PRESENTACION.md", output_path="docs/PRESENTACION.pdf"):
-    slides = _split_slides(input_path)
+def _strip_formatting(line):
+    line = re.sub(r"\*\*(.*?)\*\*", r"\1", line)
+    line = re.sub(r"`([^`]+)`", r"\1", line)
+    line = re.sub(r"^\s*[-*]\s+", "", line)
+    line = re.sub(r"^\s*\|\s*", "", line)
+    line = re.sub(r"\s*\|\s*$", "", line)
+    return line.strip()
 
-    pdf = FPDF(orientation="L", unit="mm", format="A4")
-    pdf.set_auto_page_break(auto=False)
-    # Usa fuentes del sistema Windows para soporte Unicode
-    pdf.add_font("ArialUnicode", "", r"C:\Windows\Fonts\arial.ttf", uni=True)
-    pdf.add_font("ArialUnicode", "B", r"C:\Windows\Fonts\arialbd.ttf", uni=True)
 
-    for i, slide in enumerate(slides, start=1):
-        pdf.add_page()
-        pdf.set_fill_color(245, 247, 250)
-        pdf.rect(0, 0, 297, 210, "F")
+def _is_table_row(line):
+    return line.strip().startswith("|") and line.strip().endswith("|")
+
+
+def _is_separator_row(line):
+    return re.match(r"^\|(\s*[-:]\s*\|)+$", line.strip()) is not None
+
+
+class PresentationPDF(FPDF):
+    def __init__(self):
+        super().__init__(orientation="L", unit="mm", format="A4")
+        self.set_auto_page_break(auto=False)
+        self.add_font("ArialUnicode", "", r"C:\Windows\Fonts\arial.ttf", uni=True)
+        self.add_font("ArialUnicode", "B", r"C:\Windows\Fonts\arialbd.ttf", uni=True)
+
+    def title_slide(self, title, subtitle=""):
+        self.add_page()
+        self.set_fill_color(0, 51, 102)
+        self.rect(0, 0, 297, 210, "F")
+        self.set_text_color(255, 255, 255)
+        self.set_font("ArialUnicode", "B", 40)
+        self.set_y(70)
+        self.cell(0, 20, title, align="C")
+        self.ln(15)
+        if subtitle:
+            self.set_font("ArialUnicode", "", 20)
+            self.set_text_color(200, 220, 240)
+            self.cell(0, 15, subtitle, align="C")
+
+    def content_slide(self, lines):
+        self.add_page()
+        # Barra superior decorativa
+        self.set_fill_color(0, 51, 102)
+        self.rect(0, 0, 297, 18, "F")
+
+        title = "Diapositiva"
+        if lines:
+            first = lines[0].strip()
+            if first.startswith("## "):
+                title = _strip_formatting(first.replace("## ", ""))
+                lines = lines[1:]
 
         # Título
-        pdf.set_font("ArialUnicode", "B", 22)
-        pdf.set_text_color(33, 37, 41)
-        # La primera línea es el título
-        first_line = slide.splitlines()[0] if slide else f"Diapositiva {i}"
-        pdf.cell(0, 20, first_line, ln=True, align="C")
-        pdf.ln(5)
+        self.set_xy(15, 30)
+        self.set_font("ArialUnicode", "B", 24)
+        self.set_text_color(0, 51, 102)
+        self.cell(0, 12, title, ln=True)
+        self.ln(5)
 
-        # Cuerpo
-        body = "\n".join(slide.splitlines()[1:]).strip()
-        pdf.set_font("ArialUnicode", "", 13)
-        pdf.set_text_color(52, 58, 64)
+        self.set_x(15)
+        self.set_font("ArialUnicode", "", 14)
+        self.set_text_color(40, 40, 40)
 
-        # Inserta texto con saltos de línea controlados
-        for line in body.splitlines():
+        i = 0
+        while i < len(lines):
+            line = lines[i]
             if not line.strip():
-                pdf.ln(4)
+                i += 1
                 continue
-            # Tablas o bloques de código se tratan como texto normal
-            pdf.multi_cell(0, 8, line, align="L")
-            pdf.ln(2)
+
+            if _is_table_row(line):
+                # Procesa tabla
+                table_lines = []
+                while i < len(lines) and _is_table_row(lines[i]):
+                    if not _is_separator_row(lines[i]):
+                        table_lines.append(lines[i])
+                    i += 1
+                if table_lines:
+                    self._draw_table(table_lines)
+                continue
+
+            if line.strip().startswith("```"):
+                i += 1
+                code_lines = []
+                while i < len(lines) and not lines[i].strip().startswith("```"):
+                    code_lines.append(lines[i])
+                    i += 1
+                self._draw_code_box(code_lines)
+                i += 1
+                continue
+
+            if line.strip().startswith("- ") or line.strip().startswith("* "):
+                self._bullet(line)
+            else:
+                self._body_text(line)
+            i += 1
+            self.ln(2)
+
+    def _body_text(self, line):
+        self.set_font("ArialUnicode", "", 14)
+        self.set_text_color(40, 40, 40)
+        self.multi_cell(260, 8, _strip_formatting(line), align="L")
+
+    def _bullet(self, line):
+        self.set_x(20)
+        self.set_font("ArialUnicode", "B", 14)
+        self.set_text_color(0, 51, 102)
+        self.cell(8, 8, "-", ln=0)
+        self.set_font("ArialUnicode", "", 14)
+        self.set_text_color(40, 40, 40)
+        self.multi_cell(250, 8, _strip_formatting(line), align="L")
+
+    def _draw_table(self, table_lines):
+        rows = [[_strip_formatting(cell).strip() for cell in line.split("|") if cell.strip() != ""] for line in table_lines]
+        if not rows:
+            return
+        cols = len(rows[0])
+        col_w = 260 / cols
+        start_x = 15
+        start_y = self.get_y()
+        row_h = 10
+
+        for r_idx, row in enumerate(rows):
+            x = start_x
+            for cell in row:
+                if r_idx == 0:
+                    self.set_fill_color(0, 51, 102)
+                    self.set_text_color(255, 255, 255)
+                    self.set_font("ArialUnicode", "B", 11)
+                    self.rect(x, start_y, col_w, row_h, "F")
+                    self.set_xy(x, start_y + 2)
+                    self.cell(col_w, 6, cell, align="C")
+                else:
+                    self.set_fill_color(245, 247, 250)
+                    self.set_text_color(40, 40, 40)
+                    self.set_font("ArialUnicode", "", 11)
+                    self.rect(x, start_y, col_w, row_h, "F")
+                    self.set_xy(x + 2, start_y + 2)
+                    self.cell(col_w - 4, 6, cell, align="L")
+                x += col_w
+            start_y += row_h
+            if start_y > 190:
+                self.add_page()
+                start_y = 30
+                start_x = 15
+        self.set_y(start_y + 5)
+
+    def _draw_code_box(self, code_lines):
+        self.set_fill_color(230, 230, 230)
+        start_y = self.get_y()
+        h = max(len(code_lines) * 6 + 6, 12)
+        self.rect(20, start_y, 260, h, "F")
+        self.set_xy(25, start_y + 4)
+        self.set_font("ArialUnicode", "", 11)
+        self.set_text_color(40, 40, 40)
+        for code in code_lines:
+            self.set_x(25)
+            self.cell(0, 6, code, ln=True)
+        self.set_y(start_y + h + 4)
+
+
+def build_pdf(input_path="docs/PRESENTACION.md", output_path="docs/PRESENTACION.pdf"):
+    raw_slides = _split_slides(input_path)
+    pdf = PresentationPDF()
+
+    # Portada
+    pdf.title_slide("Prueba Técnica", "Data Scientist Senior - Banca Analítica")
+
+    for slide in raw_slides:
+        lines = slide.splitlines()
+        pdf.content_slide(lines)
 
     pdf.output(output_path)
     print(f"PDF generado: {output_path}")

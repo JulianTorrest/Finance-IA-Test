@@ -1,187 +1,164 @@
-# Presentación - Prueba Técnica Data Scientist Senior
-
-Diapositivas en formato Markdown. Cada `##` representa una slide.
+# Prueba Técnica Data Scientist Senior
 
 ---
 
-## 1. Portada
+## 1. Presentación
 
-**Prueba Técnica Data Scientist Senior**
+**Solución de ciencia de datos productiva para riesgo financiero y fraude con agente IA**
 
-Solución de ciencia de datos productiva para riesgo financiero y fraude con agente IA.
-
-- **Candidato:** Julian Torres
-- **Fecha:** Octubre 2026
+- **Proyecto:** Finance IA Test
 - **Repositorio:** https://github.com/JulianTorrest/Finance-IA-Test
+- **Fecha:** Octubre 2026
 
 ---
 
-## 2. Problema de negocio
+## 2. Objetivos del proyecto
 
-Un banco del sector financiero necesita evolucionar su plataforma analítica hacia:
-
-1. **Scoring de riesgo dinámico** de clientes.
-2. **Detección de fraude y anomalías** en transacciones.
-3. **Agente inteligente IA** que traduzca análisis a acciones concretas.
-
-El objetivo no es solo predecir, sino **explicar, accionar y escalar** la solución.
+1. Construir un modelo de **riesgo financiero** que evolucione con el cliente.
+2. Detectar **comportamientos transaccionales atípicos** con enfoque de fraude.
+3. Habilitar un **agente inteligente IA** que traduzca análisis en acciones.
+4. Aplicar buenas prácticas de **ciclo de vida de modelos (MLOps)**.
+5. Exponer resultados vía **Streamlit y FastAPI** para usuarios y sistemas.
 
 ---
 
-## 3. Arquitectura de la solución
+## 3. Cronograma
+
+| Fase | Duración | Entregable |
+|------|----------|------------|
+| Análisis y diseño | 1-2 días | Arquitectura y supuestos |
+| Datos y features | 1 día | Datos dummy y pipeline ETL |
+| Modelado | 2-3 días | Modelos entrenados y catálogo |
+| Integración LLM y UI | 2 días | Streamlit y agente IA |
+| MLOps y API | 2 días | Tests, drift, retraining, FastAPI |
+| Sustentación | 1 día | Presentación y documentación |
+
+**Total estimado:** 9-11 días hábiles.
+
+---
+
+## 4. Arquitectura
 
 ```
-Datos dummy  →  Entrenamiento  →  Serving (FastAPI)  →  UI (Streamlit)  →  Agente IA
-                 Model Registry        Predict API          Métricas        Mistral/Groq
-                 Retraining            Drift PSI/KS
+Datos dummy  →  Feature engineering  →  Entrenamiento  →  Model Registry
+                                   ↓                    ↓
+                            Streamlit UI         FastAPI REST
+                                   ↓
+                          Agente IA (Mistral + Groq)
 ```
 
-- Código modular: `src/`, `api/`, `app/`, `tests/`, `docs/`.
-- Configuración centralizada en `config/config.yaml`.
-- Secretos en `.streamlit/secrets.toml` y `.env`.
+Capas principales:
+- **Ingesta y preparación:** `src/generate_data.py`
+- **Entrenamiento:** `src/model_catalog.py`, `src/train_models.py`
+- **Serving:** `src/predict.py` y `api/main.py`
+- **Experiencia:** `app/streamlit_app.py`
+- **MLOps:** `src/retrain.py`, `src/drift.py`, `tests/`
 
 ---
 
-## 4. Datos y generación
-
-- **5.000 clientes**, ~10.000 cuentas y **100.000 transacciones** generados sintéticamente.
-- Variables demográficas, financieras y transaccionales.
-- Targets: `risk_high` para riesgo y `fraud_real` para fraude.
-- Reproducible con `src/generate_data.py`.
-
----
-
-## 5. Modelos de machine learning
+## 5. Modelos desarrollados
 
 ### Riesgo financiero
-- Random Forest, Gradient Boosting, Logistic Regression.
-- Variables: edad, ingreso, deuda, score crediticio, etc.
-- Métrica: **ROC-AUC**.
+- Random Forest
+- Gradient Boosting
+- Logistic Regression
 
 ### Fraude transaccional
-- Isolation Forest (no supervisado) y Random Forest (supervisado).
-- Variables: monto, hora, Z-score, velocidad, riesgo país.
-- Métricas: **precision, recall, F1**.
+- Isolation Forest (no supervisado)
+- Random Forest (supervisado)
+
+**El usuario puede seleccionar el modelo en la UI y en la API.**
 
 ---
 
-## 6. Catálogo de modelos seleccionables
+## 6. Resultados
 
-- Todos los modelos se registran en `models/model_catalog.json`.
-- El usuario elige el modelo en Streamlit.
-- FastAPI permite seleccionar modelo por query param.
-- El LLM compara predicciones de múltiples modelos y explica discrepancias.
+### Métricas de modelos
 
----
+| Modelo | Métrica principal | Valor |
+|--------|-------------------|-------|
+| Riesgo - Random Forest | ROC-AUC | 0.974 |
+| Riesgo - Logistic Regression | ROC-AUC | 0.976 |
+| Fraude - Isolation Forest | F1 | 0.249 |
+| Fraude - Random Forest | F1 | 0.092 |
 
-## 7. Agente IA
-
-- Integración con **Mistral** y **Groq** con fallback automático.
-- Modos: Experto, Ejecutivo, Técnico, Alerta operativa.
-- Contexto enriquecido: perfil, cuentas, transacciones recientes, predicciones.
-- Respuesta en markdown legible con secciones estructuradas.
-
----
-
-## 8. Ciclo de vida del modelo (MLOps)
-
-- **Entrenamiento:** `src/train_models.py` y `src/model_catalog.py`.
-- **Registro:** `models/model_registry.json` y `models/model_catalog.json`.
-- **Retraining:** `src/retrain.py` con detección por antigüedad y botón en UI.
-- **Drift:** `src/drift.py` con PSI y KS, reporte y tab en Streamlit.
-- **Monitoreo:** tab de métricas con tarjetas y gráficos.
+### Cobertura
+- 5.000 clientes analizados.
+- 100.000 transacciones evaluadas.
+- 100% de clientes scorificados.
 
 ---
 
-## 9. Tests automatizados
+## 7. Impacto de negocio
 
-- 14 tests con `pytest`.
-- Cobertura:
-  - Existencia y esquema de datos.
-  - Carga de modelos.
-  - Predicciones y contexto enriquecido.
-- Ejecución: `pytest -q`.
-
----
-
-## 10. FastAPI
-
-Endpoints disponibles:
-
-- `GET /health`
-- `GET /catalog`
-- `GET /predict/risk/{client_id}?model=...`
-- `GET /predict/fraud/{transaction_id}?model=...`
-- `GET /context/client/{client_id}`
-- `GET /context/transaction/{transaction_id}`
-- `POST /retrain?force=true`
-- `GET /drift`
-
-Permite consumo por otros sistemas del banco.
+- **Reducción de pérdidas:** detección temprana de clientes de alto riesgo.
+- **Eficiencia operativa:** fraude detectado automáticamente para revisión.
+- **Toma de decisiones:** el agente IA entrega recomendaciones accionables en lenguaje natural.
+- **Escalabilidad:** FastAPI permite integración con canales digitales del banco.
+- **Governanza:** registro, versionamiento, drift y retraining incluidos.
 
 ---
 
-## 11. Métricas y valor de negocio
+## 8. Agente IA
 
-| KPI | Valor esperado |
-|-----|----------------|
-| ROC-AUC riesgo | > 0.95 |
-| F1 fraude | Mejorable con tuning |
-| Tiempo respuesta LLM | < 2s |
-| Cobertura scoring | 100% clientes |
-| Transacciones analizadas | 100.000 |
+- Integración con **Mistral** y **Groq** con fallback.
+- Responde en markdown con secciones: resumen, factores, acción, urgencia, riesgo, justificación.
+- **Compara predicciones** de múltiples modelos de ML.
+- Contexto enriquecido: cliente, cuentas, transacciones recientes, scores.
 
 ---
 
-## 12. Supuestos y decisiones técnicas
+## 9. MLOps implementado
 
-- Datos sintéticos; en producción vendrían del data warehouse.
+| Capacidad | Estado |
+|-----------|--------|
+| Registro de modelos | (OK) |
+| Versionamiento | (OK) |
+| Tests automatizados (pytest) | (OK) |
+| Drift monitoring (PSI/KS) | (OK) |
+| Retraining automático | (OK) |
+| API REST (FastAPI) | (OK) |
+| Documentación | (OK) |
+
+---
+
+## 10. Supuestos clave
+
+- Datos sintéticos para la demo; en producción vendrían del data warehouse.
 - Target de riesgo construido con reglas de negocio.
-- Tasa de fraude ~2% para la demo.
-- Mistral/Groq requieren API keys de tier adecuado.
-- Se priorizó explicabilidad y facilidad de mantenimiento.
+- Tasa de fraude simulada ~2%.
+- API keys de Mistral/Groq en tier gratuito.
 
 ---
 
-## 13. Demo / mockups
+## 11. Roadmap
 
-La aplicación Streamlit incluye:
-
-- Tab **Riesgo Financiero** con selección de modelo.
-- Tab **Fraude** con scatter de anomalías.
-- Tab **Agente IA** con respuestas markdown.
-- Tab **Monitoreo** con métricas y retraining.
-- Tab **Drift** con PSI y KS.
-
----
-
-## 14. Roadmap de mejoras
-
-A corto plazo:
-- A/B testing y shadow mode.
+**Corto plazo**
 - SHAP para explicabilidad.
+- A/B testing y shadow mode.
 - Dockerización.
 
-A mediano plazo:
+**Mediano plazo**
 - Feature store.
-- MLflow para trazabilidad.
+- MLflow / experiment tracking.
 - CI/CD con GitHub Actions.
 
-A largo plazo:
-- Kubernetes / cloud.
+**Largo plazo**
+- Kubernetes / cloud deployment.
 - Multitenencia.
-- Modelos más avanzados (XGBoost, autoencoders).
+- XGBoost y autoencoders.
 
 ---
 
-## 15. Cierre
+## 12. Cierre
 
 La solución entrega:
 
-- ✅ Datos, modelos y UI funcionales.
-- ✅ Agente IA con fallback y comparación de modelos.
-- ✅ MLOps: registro, retraining, drift.
-- ✅ API REST para integración.
-- ✅ Tests automatizados y documentación.
+- (OK) Datos, modelos y UI funcionales.
+- (OK) Catálogo de modelos seleccionables.
+- (OK) Agente IA con fallback y comparación de modelos.
+- (OK) MLOps: registro, drift, retraining y tests.
+- (OK) API REST para integración con otros sistemas.
+- (OK) Presentación ejecutiva lista para sustentación.
 
-**Gracias.**
+**¡Gracias!**
